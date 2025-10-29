@@ -1,0 +1,18 @@
+? /mnt/d/Learning/Haskell/lab2_haskell/lab2-haskell/.stack-work/dist/x86_64-linux/ghc-9.6.6/build/batcher_sort/autogen/Paths_lab2_haskell.hs
+: hash: 0fcd9752692f6d82384b75f8af3b0dc5bddc8fd1460a24612031a91eb9b963c1
+? /mnt/d/Learning/Haskell/lab2_haskell/lab2-haskell/.stack-work/dist/x86_64-linux/ghc-9.6.6/build/batcher_sort/autogen/cabal_macros.h
+: hash: 827566c0448c389b356dfccdcd12b0ab5a45468058ee01276ca9aa58e6404b9d
+/mnt/d/Learning/Haskell/lab2_haskell/lab2-haskell/lab2-haskell.cabal:
+  hash: bf77f4e625b70ecc377717409ce2a96b241fbc2bc95bef44d64dfd4a97f214a5
+/mnt/d/Learning/Haskell/lab2_haskell/lab2-haskell/package.yaml:
+  hash: c0ab2d8f98c9171f78e9a374bf68c9eaa098466124a3e52565cea87290803aca
+/mnt/d/Learning/Haskell/lab2_haskell/lab2-haskell/src/Main.hs:
+  hash: a675f813c06ea9b39ad0a39e63778f4210629c0de8254325cddbe588ebcc065e
+/mnt/d/Learning/Haskell/lab2_haskell/lab2-haskell/src/Sort/Batcher.hs:
+  hash: 3b5cff6cdc304b9844a6069b02dc6272b8a78939165188bca5aa279651f10447
+/mnt/d/Learning/Haskell/lab2_haskell/lab2-haskell/src/Utils.hs:
+  hash: 977d0a1e24b0bc3a459c3922a69b97f21853e162014fbc1804c9ee9747e87ad3
+/root/.ghcup/ghc/9.6.6/lib/ghc-9.6.6/lib/x86_64-linux-ghc-9.6.6/rts-1.0.2/include/ghcversion.h:
+  hash: 9032f6afc97dcddfe8c8b306639eb6f456e3f6667f3dd8268681f51bb77c8634
+/usr/include/stdc-predef.h:
+  hash: cb08cd5d4cc059a90833ac48a284d25016e8d56ded8ad4cd98d8ac59cc5053f3

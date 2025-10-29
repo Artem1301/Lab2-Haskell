@@ -1,0 +1,14 @@
+name: lab2-haskell
+version: 0.1.0.0
+extra-source-files: []
+
+executables:
+  batcher_sort:
+    main: Main.hs
+    source-dirs: src
+
+dependencies:
+  - base >= 4.7 && < 5
+  - random
+  - time
+  - vector
