@@ -3,15 +3,45 @@ module Main where
 import Control.Monad
 import Data.Time.Clock
 import System.IO
-import qualified Data.Vector.Mutable as MV
-import Sort.Batcher
-import Utils
+import System.Random (randomRIO)
+import Text.Read (readMaybe)
+import Data.Bits ((.&.))
+import GHC.Conc (setNumCapabilities)
+
+import Sort.Batcher (oesort, parOESort, depthFromK, showListInline)
+
+
+readIntSafe :: String -> IO Int
+readIntSafe msg = do
+  putStr msg
+  hFlush stdout
+  s <- getLine
+  case reads s of
+    [(x, "")] -> return x
+    _         -> putStrLn " Invalid number, try again." >> readIntSafe msg
+
+
+readIntList :: IO [Int]
+readIntList = do
+  putStrLn "Enter space-separated integers:"
+  putStr "> "
+  hFlush stdout
+  s <- getLine
+  let ws = words s
+  case traverse readMaybe ws of
+    Just xs -> return xs
+    Nothing -> putStrLn "Invalid list, try again." >> readIntList
+
+
+randomList :: Int -> Int -> Int -> IO [Int]
+randomList n a b = replicateM n (randomRIO (a, b))
 
 main :: IO ()
 main = do
   hSetBuffering stdout LineBuffering
-  putStrLn "========== Parallel Batcher Sort =========="
+  putStrLn "========== Parallel Odd-Even Mergesort =========="
   menuLoop Nothing 4
+
 
 menuLoop :: Maybe [Int] -> Int -> IO ()
 menuLoop current threads = do
@@ -24,42 +54,59 @@ menuLoop current threads = do
   putStr "Choose option: "
   hFlush stdout
   choice <- getLine
+
   case choice of
+
     "1" -> do
       arr <- readIntList
       menuLoop (Just arr) threads
+
     "2" -> do
-      n <- readInt "Enter array length: "
-      a <- readInt "Min value: "
-      b <- readInt "Max value: "
+      n <- readIntSafe "Enter array length: "
+      a <- readIntSafe "Min value: "
+      b <- readIntSafe "Max value: "
       arr <- randomList n a b
-      putStrLn $ "Generated: " ++ show arr
+      putStrLn $ "Generated: " ++ showListInline arr
       menuLoop (Just arr) threads
+
     "3" -> do
-      t <- readInt "Enter number of threads: "
+      t <- readIntSafe "Enter number of threads: "
+      setNumCapabilities (max 1 t)
       putStrLn $ " Threads set to " ++ show t
       menuLoop current (max 1 t)
+
     "4" -> case current of
       Nothing -> do
         putStrLn " No array provided yet!"
         menuLoop current threads
+
       Just arr -> do
-        let n0 = length arr
-        let p = nextPow2 n0
-        let padded = padWith p arr
-        v <- fromListIO padded
+        let n = length arr
+            isPow2 x = x > 0 && (x .&. (x - 1)) == 0
 
-        putStrLn $ "\nSorting with " ++ show threads ++ " threads..."
-        start <- getCurrentTime
-        bitonicSort threads v p
-        end <- getCurrentTime
+        if not (isPow2 n)
+          then do
+            putStrLn $ " Error: array length = " ++ show n ++
+                       ", but must be a power of two (2^k)."
+            putStrLn " Please enter or generate a valid array."
+            menuLoop current threads
+          else do
+            let depth = depthFromK threads
 
-        sortedList <- forM [0 .. p - 1] $ \i -> MV.read v i
-        let result = trimResult sortedList
+            putStrLn $ "\nSorting with " ++ show threads ++ " threads..."
+            start <- getCurrentTime
 
-        putStrLn $ "\n Sorted: " ++ show result
-        putStrLn $ " Time: " ++ show (diffUTCTime end start)
-        menuLoop (Just result) threads
+            let result =
+                  if threads <= 1
+                    then oesort arr
+                    else parOESort depth arr
+
+            end <- getCurrentTime
+
+            putStrLn $ "\n Sorted: " ++ showListInline result
+            putStrLn $ " Time: " ++ show (diffUTCTime end start)
+            menuLoop (Just result) threads
+
     "5" -> putStrLn " Exiting. Goodbye!"
     _   -> do
       putStrLn " Invalid choice."
