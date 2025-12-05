@@ -1,75 +1,87 @@
-{-# LANGUAGE ScopedTypeVariables #-}
-module Sort.Batcher (
-    bitonicSort,
-    fromListIO,
-    trimResult,
-    nextPow2,
-    padWith
-) where
+module Sort.Batcher
+  ( oesort
+  , parOESort
+  , depthFromK
+  , showListInline
+  ) where
 
-import Control.Monad
-import Control.Concurrent
-import qualified Data.Vector.Mutable as MV
-import Data.Bits
+import GHC.Conc (setNumCapabilities, getNumCapabilities)
+import Text.Read (readMaybe)
+import Control.DeepSeq (NFData, force)
+import Control.Parallel.Strategies (rpar, rseq, runEval)
 
-nextPow2 :: Int -> Int
-nextPow2 n
-  | n <= 1 = 1
-  | popCount n == 1 = n
-  | otherwise = let p = until (\x -> x >= n) (*2) 1 in p
 
-padWith :: Int -> [Int] -> [Int]
-padWith p xs = xs ++ replicate (p - length xs) (maxBound :: Int)
+oddEvenMerge :: Ord a => [a] -> [a] -> [a]
+oddEvenMerge xs ys =
+  let evens = merge (every2 xs) (every2 ys)
+      odds  = merge (every2 (drop 1 xs)) (every2 (drop 1 ys))
+      inter = interleave evens odds
+  in adjSwap inter
+  where
+    merge [] bs = bs
+    merge as [] = as
+    merge (a:as) (b:bs)
+      | a <= b    = a : merge as (b:bs)
+      | otherwise = b : merge (a:as) bs
 
-compareAndSwap :: MV.IOVector Int -> Int -> Int -> IO ()
-compareAndSwap v i j = do
-  xi <- MV.read v i
-  xj <- MV.read v j
-  when (xi > xj) $ do
-    MV.write v i xj
-    MV.write v j xi
+    every2 zs = [x | (x,i) <- zip zs [0..], even i]
 
-parallelForIndices :: Int -> MV.IOVector Int -> Int -> Int -> Int -> IO ()
-parallelForIndices threads v n k j = do
-  let chunkSize = (n + threads - 1) `div` threads
-  doneVars <- forM [0 .. threads - 1] $ \t -> do
-    let start = t * chunkSize
-        end = min n (start + chunkSize)
-    m <- newEmptyMVar
-    _ <- forkIO $ do
-      let loop i
-            | i >= end = putMVar m ()
-            | otherwise = do
-                let l = i `xor` j
-                when (l > i) $ do
-                  let ascending = ((i .&. k) == 0)
-                  if ascending
-                    then compareAndSwap v i l
-                    else compareAndSwap v l i
-                loop (i + 1)
-      loop start
-    return m
-  mapM_ takeMVar doneVars
+    interleave (e:es) (o:os) = e : o : interleave es os
+    interleave es []         = es
+    interleave [] os         = os
 
-bitonicSort :: Int -> MV.IOVector Int -> Int -> IO ()
-bitonicSort threads v n = do
-  let loopK k
-        | k > n = return ()
-        | otherwise = do
-            let loopJ j
-                  | j < 1 = return ()
-                  | otherwise = do
-                      parallelForIndices threads v n k j
-                      loopJ (j `div` 2)
-            loopJ (k `div` 2)
-            loopK (k * 2)
-  loopK 2
+    adjSwap []       = []
+    adjSwap [x]      = [x]
+    adjSwap (x:rest) = x : pairSwap rest
+      where
+        pairSwap (a:b:rs)
+          | a <= b    = a : b : pairSwap rs
+          | otherwise = b : a : pairSwap rs
+        pairSwap rs = rs
 
-trimResult :: [Int] -> [Int]
-trimResult = filter (/= (maxBound :: Int))
 
-fromListIO :: [Int] -> IO (MV.IOVector Int)
-fromListIO xs = do
-  v <- MV.new (length xs)
-  forM_ (zip [0..] xs) $ \(i,x) -> MV.write v i x
-  return v
+oesort :: Ord a => [a] -> [a]
+oesort []  = []
+oesort [x] = [x]
+oesort xs  =
+  let (as, bs) = split xs
+      sa = oesort as
+      sb = oesort bs
+  in oddEvenMerge sa sb
+  where
+    split =
+      foldr
+        (\(i,v) (l,r) -> if even i then (v:l, r) else (l, v:r))
+        ([],[])
+      . zip [0..]
+
+
+parOESort :: (NFData a, Ord a) => Int -> [a] -> [a]
+parOESort _ []  = []
+parOESort _ [x] = [x]
+parOESort depth xs
+  | depth <= 0 = oesort xs
+  | otherwise  =
+      let (as, bs) = split xs
+      in runEval $ do
+           a <- rpar (force (parOESort (depth-1) as))
+           b <- rpar (force (parOESort (depth-1) bs))
+           rseq a
+           rseq b
+           pure (oddEvenMerge a b)
+  where
+    split =
+      foldr
+        (\(i,v) (l,r) -> if even i then (v:l, r) else (l, v:r))
+        ([],[])
+      . zip [0..]
+
+
+depthFromK :: Int -> Int
+depthFromK k
+  | k <= 1    = 0
+  | otherwise = floor (logBase 2 (fromIntegral k :: Double))
+
+
+showListInline :: Show a => [a] -> String
+showListInline = unwords . map show
